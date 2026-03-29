@@ -2,3 +2,6 @@ id	timestamp	accuracy	num_waypoints	strategy	status	notes
 1	2026-03-29T17:45:26	4.5	21	random_baseline	keep	random Y values uniform(-8,8) every 5 X units, seed=42. 9/201 samples on line.
 2	2026-03-29T17:56:00	6.0	2	flat_y0_probe	discard	flat line at Y=0. Curve crosses zero at X≈23.5-24.5, 41-42, 56-57, 80-81.
 3	2026-03-29T17:57:00	73.6	47	curve_map_v1	keep	Built waypoints from Y-sweep probes at Y=-8,-6,-4,-2,0,2,4,6,8. Huge jump. 53 samples still OFF.
+4	2026-03-29T17:59:00	97.5	70	refined_map_v1	keep	Targeted probing of all miss regions. Fixed X=11-15 to Y=0.8, X=20-24 ramp, X=28-29 to -6.5, X=51-54 descent, X=67-72, X=75-77 to -4.5, X=93-100 to 3.3. Only 5 misses left.
+5	2026-03-29T18:01:00	99.5	73	fine_tune_v1	keep	Fixed X=21 to 3.2, X=51.5-52 to 7.8, X=76.5 to -4.7. Only X=-0.5 miss remaining.
+6	2026-03-29T18:02:00	100.0	75	perfect_v1	keep	Fixed X=-0.5 by adding waypoint at X=-1 Y=1.5. PERFECT SCORE 201/201.
