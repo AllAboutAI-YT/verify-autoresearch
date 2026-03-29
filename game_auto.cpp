@@ -114,10 +114,13 @@ const int BALL_R = 4;
 const int FPS = 30;
 
 double curve(double x) {
-    return 4.0 * sin(x * M_PI / 20.0)
-         + 2.5 * sin(x * M_PI / 8.0)
-         + 1.5 * cos(x * M_PI / 12.0)
-         + 1.0 * sin(x * M_PI / 5.0);
+    return 3.0 * sin(x * M_PI / 18.0)
+         + 2.0 * sin(x * M_PI / 7.0 + 0.8)
+         + 1.5 * cos(x * M_PI / 11.0 - 0.3)
+         + 1.2 * sin(x * M_PI / 4.5 + 1.2)
+         + 0.8 * cos(x * M_PI / 3.0 - 0.7)
+         + 0.6 * sin(x * M_PI / 2.2 + 2.0)
+         + 0.4 * cos(x * M_PI / 1.5 + 0.5);
 }
 
 int to_px_x(double gx) {
