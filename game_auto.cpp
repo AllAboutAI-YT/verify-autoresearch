@@ -427,9 +427,15 @@ int main(int argc, char** argv) {
     // ── Init SDL2 offscreen ──────────────────────────────────────────────────
     SDL_Init(SDL_INIT_VIDEO);
     SDL_Window* win = SDL_CreateWindow("Render", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
-                                       WIN_W, WIN_H, SDL_WINDOW_HIDDEN);
-    SDL_Renderer* ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_SOFTWARE);
+                                       WIN_W, WIN_H, 0);
+    SDL_Renderer* ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_TARGETTEXTURE);
+    if (!ren) ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_SOFTWARE | SDL_RENDERER_TARGETTEXTURE);
     SDL_SetRenderDrawBlendMode(ren, SDL_BLENDMODE_BLEND);
+
+    // Create offscreen render target
+    SDL_Texture* target = SDL_CreateTexture(ren, SDL_PIXELFORMAT_ARGB8888,
+                                            SDL_TEXTUREACCESS_TARGET, WIN_W, WIN_H);
+    SDL_SetRenderTarget(ren, target);
 
     // ── Open ffmpeg pipe ─────────────────────────────────────────────────────
     char cmd[512];
@@ -468,26 +474,20 @@ int main(int argc, char** argv) {
             if (circle_hits_curve(sbx, sby, BALL_R)) running_on_line++;
         }
 
+        SDL_SetRenderTarget(ren, target);
         render_frame(ren, time_x, ball_y, running_on_line, running_samples, false);
-        SDL_RenderPresent(ren);
 
-        // Read pixels from renderer
-        SDL_Surface* surface = SDL_CreateRGBSurface(0, WIN_W, WIN_H, 32,
-            0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000);
-        SDL_RenderReadPixels(ren, nullptr, SDL_PIXELFORMAT_ARGB8888, surface->pixels, surface->pitch);
+        // Read pixels from render target
+        SDL_Rect rect = {0, 0, WIN_W, WIN_H};
+        std::vector<unsigned char> argb(WIN_W * WIN_H * 4);
+        SDL_RenderReadPixels(ren, &rect, SDL_PIXELFORMAT_ARGB8888, argb.data(), WIN_W * 4);
 
         // Convert ARGB to RGB24
-        unsigned char* src = (unsigned char*)surface->pixels;
-        for (int y = 0; y < WIN_H; y++) {
-            for (int x = 0; x < WIN_W; x++) {
-                int si = y * surface->pitch + x * 4;
-                int di = (y * WIN_W + x) * 3;
-                pixels[di + 0] = src[si + 2]; // R
-                pixels[di + 1] = src[si + 1]; // G
-                pixels[di + 2] = src[si + 0]; // B
-            }
+        for (int i = 0; i < WIN_W * WIN_H; i++) {
+            pixels[i * 3 + 0] = argb[i * 4 + 2]; // R
+            pixels[i * 3 + 1] = argb[i * 4 + 1]; // G
+            pixels[i * 3 + 2] = argb[i * 4 + 0]; // B
         }
-        SDL_FreeSurface(surface);
 
         fwrite(pixels.data(), 1, pixels.size(), ffmpeg);
 
@@ -500,29 +500,24 @@ int main(int argc, char** argv) {
     // ── Game over frames (hold for 2 seconds) ───────────────────────────────
     double final_ball_y = interpolate_y(waypoints, GAME_X_MAX);
     for (int f = 0; f < FPS * 2; f++) {
+        SDL_SetRenderTarget(ren, target);
         render_frame(ren, GAME_X_MAX, final_ball_y, running_on_line, running_samples, true);
-        SDL_RenderPresent(ren);
 
-        SDL_Surface* surface = SDL_CreateRGBSurface(0, WIN_W, WIN_H, 32,
-            0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000);
-        SDL_RenderReadPixels(ren, nullptr, SDL_PIXELFORMAT_ARGB8888, surface->pixels, surface->pitch);
-        unsigned char* src = (unsigned char*)surface->pixels;
-        for (int y = 0; y < WIN_H; y++) {
-            for (int x = 0; x < WIN_W; x++) {
-                int si = y * surface->pitch + x * 4;
-                int di = (y * WIN_W + x) * 3;
-                pixels[di + 0] = src[si + 2];
-                pixels[di + 1] = src[si + 1];
-                pixels[di + 2] = src[si + 0];
-            }
+        SDL_Rect rect = {0, 0, WIN_W, WIN_H};
+        std::vector<unsigned char> argb(WIN_W * WIN_H * 4);
+        SDL_RenderReadPixels(ren, &rect, SDL_PIXELFORMAT_ARGB8888, argb.data(), WIN_W * 4);
+        for (int i = 0; i < WIN_W * WIN_H; i++) {
+            pixels[i * 3 + 0] = argb[i * 4 + 2];
+            pixels[i * 3 + 1] = argb[i * 4 + 1];
+            pixels[i * 3 + 2] = argb[i * 4 + 0];
         }
-        SDL_FreeSurface(surface);
         fwrite(pixels.data(), 1, pixels.size(), ffmpeg);
     }
 
     printf("\r  Done! %d frames rendered.          \n", total_frames + FPS * 2);
 
     pclose(ffmpeg);
+    SDL_DestroyTexture(target);
     SDL_DestroyRenderer(ren);
     SDL_DestroyWindow(win);
     SDL_Quit();
