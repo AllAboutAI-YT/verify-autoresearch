@@ -1,2 +1,4 @@
 id	timestamp	accuracy	num_waypoints	strategy	status	notes
 1	2026-03-29T17:45:26	4.5	21	random_baseline	keep	random Y values uniform(-8,8) every 5 X units, seed=42. 9/201 samples on line.
+2	2026-03-29T17:56:00	6.0	2	flat_y0_probe	discard	flat line at Y=0. Curve crosses zero at X≈23.5-24.5, 41-42, 56-57, 80-81.
+3	2026-03-29T17:57:00	73.6	47	curve_map_v1	keep	Built waypoints from Y-sweep probes at Y=-8,-6,-4,-2,0,2,4,6,8. Huge jump. 53 samples still OFF.
