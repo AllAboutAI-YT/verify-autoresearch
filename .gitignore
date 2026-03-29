@@ -1,0 +1,6 @@
+game
+game_auto
+runs/
+*.o
+experiment_waypoints.json
+.DS_Store
