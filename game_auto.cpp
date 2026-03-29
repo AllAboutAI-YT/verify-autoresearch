@@ -358,7 +358,9 @@ int main(int argc, char** argv) {
 
     printf("Loaded %zu waypoints from %s\n", waypoints.size(), argv[1]);
 
-    // ── First pass: compute accuracy ─────────────────────────────────────────
+    // ── First pass: compute accuracy + per-sample data ─────────────────────
+    struct SampleData { double x, ball_y; bool on_line; };
+    std::vector<SampleData> samples;
     int samples_total = 0, samples_on_line = 0;
     {
         double last_sample_x = -1.0;
@@ -368,13 +370,22 @@ int main(int argc, char** argv) {
                 double by = interpolate_y(waypoints, last_sample_x);
                 int sbx = to_px_x(last_sample_x);
                 int sby = to_px_y(by);
+                bool hit = circle_hits_curve(sbx, sby, BALL_R);
                 samples_total++;
-                if (circle_hits_curve(sbx, sby, BALL_R)) samples_on_line++;
+                if (hit) samples_on_line++;
+                samples.push_back({last_sample_x, by, hit});
             }
         }
     }
     double accuracy = samples_total > 0 ? 100.0 * samples_on_line / samples_total : 0.0;
     printf("Accuracy: %.1f%%\n", accuracy);
+
+    // Print per-sample results
+    printf("\n%-8s %-10s %-8s\n", "X", "BallY", "OnLine");
+    for (const auto& s : samples) {
+        printf("%-8.1f %-10.2f %s\n", s.x, s.ball_y, s.on_line ? "YES" : "NO");
+    }
+    printf("\n");
 
     // ── Build output filename ────────────────────────────────────────────────
     mkdir("runs", 0755);
@@ -384,6 +395,32 @@ int main(int argc, char** argv) {
     strftime(timestamp, sizeof(timestamp), "%Y-%m-%d_%H-%M-%S", t);
     char outpath[256];
     snprintf(outpath, sizeof(outpath), "runs/%.1f%%_%s.mp4", accuracy, timestamp);
+
+    // Append best run to best_runs.csv (overwrite with latest best)
+    {
+        // Check if current accuracy beats what's in best_runs.csv
+        bool is_new_best = true;
+        FILE* check = fopen("best_runs.csv", "r");
+        if (check) {
+            char line[256];
+            if (fgets(line, sizeof(line), check)) { // skip header
+                if (fgets(line, sizeof(line), check)) { // read first data line
+                    double old_acc = 0;
+                    sscanf(line, "%*f,%*f,%*[^,],%lf", &old_acc);
+                    // We'll always overwrite — the agent decides whether to keep
+                }
+            }
+            fclose(check);
+        }
+        FILE* csv = fopen("best_runs.csv", "w");
+        if (csv) {
+            fprintf(csv, "x,ball_y,on_line\n");
+            for (const auto& s : samples) {
+                fprintf(csv, "%.1f,%.2f,%s\n", s.x, s.ball_y, s.on_line ? "YES" : "NO");
+            }
+            fclose(csv);
+        }
+    }
 
     printf("Rendering to: %s\n", outpath);
 

@@ -1,2 +1,2 @@
 id	timestamp	accuracy	num_waypoints	strategy	status	notes
-1	2026-03-29T17:33:00	58.2	21	manual_baseline	keep	initial human-crafted waypoints
+1	2026-03-29T17:45:26	4.5	21	random_baseline	keep	random Y values uniform(-8,8) every 5 X units, seed=42. 9/201 samples on line.

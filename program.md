@@ -17,10 +17,11 @@ You are an autonomous research agent optimizing waypoints for a "Ball on Line" g
 - The ball follows a path defined by waypoints: `[{"x": 0, "y": 1.5}, ...]`
 - X ranges from 0 to 100, Y ranges from -10 to 10
 - Ball position is **linearly interpolated** between waypoints
-- The target curve is: `curve(x) = 4*sin(x*π/20) + 2.5*sin(x*π/8) + 1.5*cos(x*π/12) + 1*sin(x*π/5)`
+- The target curve is **unknown** — you cannot read the source code to find it
 - Accuracy is sampled every 0.5 X units (201 samples total)
 - "On line" = ball circle (radius 4px) touches the curve segment on screen
 - The game renders at 900x600 pixels with specific margins
+- You must discover the curve shape through experimentation
 
 ## Experiment Loop
 
@@ -34,26 +35,34 @@ Repeat this loop **indefinitely**. Do NOT pause to ask the human. Do NOT stop af
 ### Step 2: Design New Waypoints
 Choose a strategy. Ideas to explore (evolve your approach over time):
 
-**Early experiments (getting oriented):**
-- Sample the curve function directly at evenly spaced X values
-- Try different waypoint densities (20, 50, 100, 200 points)
-- The curve formula is known — use it!
+**Early experiments (probing the curve):**
+- Try flat lines at different Y values to map out the curve's range
+- Probe individual regions: set Y high/low at specific X to find where the curve is
+- Use the per-sample output from `./game_auto` to see which X positions are ON vs OFF line
 
-**Mid experiments (refining):**
-- Identify which X regions lose accuracy (steep sections need more density)
-- Use adaptive spacing — more waypoints where the curve changes rapidly
-- Compute curve derivative to find high-curvature regions
+**Mid experiments (building a map):**
+- Use the ON/OFF data from runs to narrow down the curve's Y value at each X
+- Binary search: if Y=3 is off and Y=5 is on at X=20, try Y=4
+- Increase waypoint density in regions you've mapped well
+- Use per-sample details to identify steep vs flat sections
 
 **Late experiments (fine-tuning):**
-- Run game_auto with `--verbose` or check per-sample output to find exact failure points
-- Micro-adjust Y values at problem X positions
-- Test if there's a systematic pixel-rounding bias to compensate for
+- Micro-adjust Y values at specific X positions that are still OFF
+- Increase density in steep regions where linear interpolation causes misses
+- Try small perturbations (+/- 0.1) around known good values
 
 ### Step 3: Run the Experiment
 1. Write your waypoints to `experiment_waypoints.json`
-2. Run: `./run_experiment.sh experiment_waypoints.json`
-3. The script outputs a single number: the accuracy (e.g. `58.2`)
-4. Also run `./game_auto experiment_waypoints.json` for full output if you need per-sample details
+2. Run: `./game_auto experiment_waypoints.json`
+3. The output contains:
+   - **Accuracy line**: `Accuracy: 4.5%`
+   - **Per-sample table**: for every 0.5 X step from 0 to 100, shows `X`, `BallY`, and `YES`/`NO` (on line or not)
+   - **best_runs.csv**: overwritten each run with columns `x,ball_y,on_line,accuracy` — your latest per-sample data
+   - **MP4 video**: saved to `runs/{accuracy}%_{timestamp}.mp4`
+4. **The per-sample YES/NO data is your primary feedback signal.** Use it to learn where the curve is:
+   - If `BallY=3.0` at `X=20` is `YES` → the curve passes near Y=3.0 at X=20
+   - If `BallY=3.0` at `X=20` is `NO` → the curve is NOT near Y=3.0 at X=20
+   - By probing different Y values at each X, you can map out the curve
 
 ### Step 4: Log the Result
 Append a row to `results.tsv`:
@@ -80,18 +89,17 @@ Do not stop. Do not ask for permission. Keep experimenting.
 
 ## Rules
 
-1. **Never modify game.cpp, game_auto.cpp, or run_experiment.sh** — only waypoints
-2. **Never modify the curve function** — you optimize waypoints against the fixed curve
+1. **Never read game.cpp or game_auto.cpp** — the curve is unknown, you must discover it
+2. **Never modify game.cpp, game_auto.cpp, or run_experiment.sh** — only waypoints
 3. **Always log every experiment** — even failures are valuable data
 4. **Read your own past notes** — don't repeat strategies that already failed
 5. **Commit and push only improvements** — keep the git history clean
-6. **Be creative** — try mathematical approaches, not just random perturbations
+6. **Be scientific** — form hypotheses, test them, record learnings
 7. **Think before each experiment** — explain your reasoning briefly in the notes
-
-## Key Insight
-
-The curve function `curve(x) = 4*sin(x*π/20) + 2.5*sin(x*π/8) + 1.5*cos(x*π/12) + 1*sin(x*π/5)` is fully known. The challenge is that the game uses pixel-level collision detection with specific coordinate mapping, so perfect mathematical waypoints may not yield 100% due to rounding. Your job is to find waypoints that account for this.
+8. **Use the per-sample output** — `./game_auto experiment_waypoints.json` shows ON/OFF for each X sample, this is your primary feedback signal
 
 ## Current State
 
-Check `results.tsv` for the latest best accuracy and experiment count.
+- Baseline: **4.5%** accuracy from random waypoints (21 points, random Y in -8 to 8)
+- Check `results.tsv` for the latest best accuracy and full experiment history
+- Check `best_runs.csv` for per-sample data from the latest run
